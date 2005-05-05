@@ -5,9 +5,6 @@ use MT::App::CMS;
 use vars qw(@ISA $VERSION);
 @ISA = qw(MT::App::CMS);
 $VERSION = '0.1';
-sub uri {
-    $_[0]->path . MT::ConfigMgr->instance->AdminScript;
-}
 sub init {
     my $app = shift;
     $app->SUPER::init (@_) or return;
@@ -20,6 +17,7 @@ sub init {
     $app->{requires_login} = 1 ;
     $app->{user_class} = 'MT::Author';
     $app->{is_admin} = 1;
+    $app->{plugin_template_path} = File::Spec->catdir('plugins','RebuildBlogs','tmpl');
     $app;
 }
 
@@ -132,8 +130,8 @@ sub rebuild_multiple {
     unless ($done) {
         $param{total} = $total;
         $param{multiple} = 1;
-        $app->build_page('rebuilding-blogs.tmpl', \%param);
+        $app->build_page('rebuilding_blogs.tmpl', \%param);
         } else {
-        $app->build_page('rebuilt-blogs.tmpl', \%param);
+        $app->build_page('rebuilt_blogs.tmpl', \%param);
     }
 }
