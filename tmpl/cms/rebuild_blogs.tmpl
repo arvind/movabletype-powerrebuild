@@ -1,0 +1,18 @@
+<TMPL_INCLUDE NAME="header-popup.tmpl">
+
+<form method="post" action="<TMPL_VAR NAME=SCRIPT_URL>">
+<input type="hidden" name="__mode" value="rebuild_multiple" />
+
+<TMPL_LOOP NAME=BLOG_LOOP>
+<p><input type="checkbox" name="blog_id" value="<TMPL_VAR NAME=ID>" /> <TMPL_VAR NAME=NAME></p>
+</TMPL_LOOP>
+
+<div>
+<input type="button" onClick="window.close()" value="<MT_TRANS phrase="Cancel">" />
+<input type="submit" value="<MT_TRANS phrase="Rebuild Selected">" />
+<input type="button" onClick="window.location='<TMPL_VAR NAME=SCRIPT_URL>?__mode=rebuild_all'" value="<MT_TRANS phrase="Rebuild All">" />
+</div>
+
+</form>
+
+<TMPL_INCLUDE NAME="footer-popup.tmpl">
