@@ -135,3 +135,18 @@ sub rebuild_multiple {
         $app->build_page('rebuilt_blogs.tmpl', \%param);
     }
 }
+
+sub brpath {
+    
+    my $app = shift;
+    return $app->{__brpath} if exists $app->{__brpath};
+    my $brpath = File::Spec->catdir($app->path,'plugins','RebuildBlogs');
+    $app->{__brpath} = $brpath;
+    
+}
+
+sub uri { File::Spec->catdir($_[0]->brpath,$_[0]->brscript) }
+
+sub brscript {
+    return 'mt-rebuild-blogs.cgi';
+}
