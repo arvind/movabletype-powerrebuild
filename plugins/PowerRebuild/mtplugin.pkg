@@ -1,0 +1,15 @@
+<?xml version="1.0"?>
+<plugin version="1.0">
+  <name>PowerRebuild</name>
+  <version_url>http://plugins.movalog.com/plugins-manager.php?plugin=PowerRebuild</version_url>
+  <sig>PowerRebuild/powerrebuild.pl</sig>
+  <files>
+    <file>
+      <src>PowerRebuild/plugins/PowerRebuild</src>
+      <destination>plugins/PowerRebuild</destination>
+    </file>
+  </files>
+  <uninstall>
+    <rmdir>plugins/PowerRebuild</rmdir>
+  </uninstall>
+</plugin>
