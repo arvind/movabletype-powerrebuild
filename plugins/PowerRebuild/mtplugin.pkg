@@ -1,7 +1,7 @@
 <?xml version="1.0"?>
 <plugin version="1.0">
   <name>PowerRebuild</name>
-  <version_url>http://plugins.movalog.com/plugins-manager.php?plugin=PowerRebuild</version_url>
+  <version_url>http://plugins.movalog.com/plugin-manager.php?plugin=PowerRebuild</version_url>
   <sig>PowerRebuild/powerrebuild.pl</sig>
   <files>
     <file>
