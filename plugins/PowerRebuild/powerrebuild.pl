@@ -16,7 +16,7 @@ use MT::Permission;
 sub name { 'Power Rebuild' }
 sub description { 'Adds the ability to rebuild (or publish) any item in the system' }
 sub version { $VERSION }
-sub doc_link { 'http://www.movalog.com/plugins/wiki/PowerRebuild' }
+sub doc_link { 'http://plugins.movalog.com/powerrebuild/manual' }
 sub author_link { 'http://www.movalog.com/' }
 sub author_name { 'Arvind Satyanarayan' }
 
