@@ -1,221 +1,137 @@
-#!/usr/bin/perl
-use MT;
-MT->add_plugin(MT::Plugin::PowerRebuild->new);
+# PowerRebuild - A plugin for Movable Type.
+# Copyright (c) 2005-2007, Arvind Satyanarayan.
 
 package MT::Plugin::PowerRebuild;
-use strict;
-use base qw( MT::Plugin );
-use vars qw($VERSION);
-$VERSION = '1.1';
-use MT::Blog;
-use MT::Entry;
-use MT::Comment;
-use MT::TBPing;
-use MT::Permission;
 
-sub name { 'Power Rebuild' }
-sub description { 'Adds the ability to rebuild (or publish) any item in the system' }
-sub version { $VERSION }
-sub doc_link { 'http://plugins.movalog.com/powerrebuild/manual' }
-sub author_link { 'http://www.movalog.com/' }
-sub author_name { 'Arvind Satyanarayan' }
+use 5.006;    # requires Perl 5.6.x
+use MT 4.0;   # requires MT 4.0 or later
 
-sub init_app {
-    my $plugin = shift;
-    my($app) = @_;
-    return unless $app->isa('MT::App::CMS');
-    $app->add_itemset_action({
-        type  => 'blog',
-        key   => 'rebuild_blogs',
-        label => 'Rebuild Blogs',
-        code  => sub { rebuild_blogs($plugin, @_) },
-        condition => sub { $plugin->perm_check($app) },      
-    });
-    $app->add_itemset_action({
-        type  => 'template',
-        key   => 'rebuild_template',
-        label => 'Rebuild Templates',
-        code  => sub { rebuild_templates($plugin, @_) },
-        condition => sub { $plugin->perm_check($app) }, 
-    });    
-    $app->add_itemset_action({
-        type  => 'comment',
-        key   => 'rebuild_comments',
-        label => 'Rebuild Comments',
-        code  => sub { rebuild_entries($plugin, @_) },
-        condition => sub { $plugin->comments_perm_check($app) }, 
-    });
-    $app->add_itemset_action({
-        type  => 'ping',
-        key   => 'rebuild_trackbacks',
-        label => 'Rebuild Trackbacks',
-        code  => sub { rebuild_entries($plugin, @_) },
-        condition => sub { $plugin->comments_perm_check($app) }, 
-    });               
-    $app->add_methods(
-        rebuild_blogs => sub { rebuild_blogs($plugin, @_) },
-    );    
-    $app->add_methods(
-        rebuild_templates => sub { rebuild_templates($plugin, @_) },
-    );      
-    $app->add_methods(
-        rebuild_entries => sub { rebuild_entries($plugin, @_) },
-    );    
+use base 'MT::Plugin';
+our $VERSION = '1.11';
+
+my $plugin;
+MT->add_plugin($plugin = __PACKAGE__->new({
+	name            => 'PowerRebuild',
+	version         => $VERSION,
+	description     => '<__trans phrase="Allows you to mass publish weblogs and templates from the respective listing screens">',
+	author_name     => 'Arvind Satyanarayan',
+	author_link     => 'http://www.movalog.com/',
+	plugin_link     => 'http://plugins.movalog.com/powerrebuild/',
+	doc_link        => 'http://plugins.movalog.com/powerrebuild/',
+}));
+
+# Allows external access to plugin object: MT::Plugin::PowerRebuild->instance
+sub instance { $plugin; }
+
+sub init_registry {
+	my $plugin = shift;
+	$plugin->registry({
+		applications => {
+			cms => {
+				list_actions => {
+					template => {
+						'powerrebuild_publish_tmpls' => {
+							label => "Publish Template(s)",
+                            code => sub { $plugin->rebuild_objects(@_) },
+                            permissions => 'can_edit_templates',
+						}
+					},
+					blog => {
+						'powerrebuild_publish_blogs' => {
+							label => "Publish Blog(s)",
+							code => sub { $plugin->rebuild_objects(@_) }
+						}
+					}
+				},
+				methods => {
+					'powerrebuild_publish' => sub { $plugin->rebuild_objects(@_); }
+				}
+			}
+		},
+		callbacks => {
+			'MT::App::CMS::template_source.list_template' => sub { $plugin->powerrebuild_return_arg(@_); },
+			'MT::App::CMS::template_source.list_blog' => sub { $plugin->powerrebuild_return_arg(@_); }
+		}
+	});
 }
 
-sub comments_perm_check {
-    my $plugin = shift;
-    my ($app) = @_;
-    my $perms = $app->{perms};
-    $perms ? $perms->can_edit_all_posts : $app->user->is_superuser;
-}
-
-sub perm_check {
-    my $plugin = shift;
-    my ($app) = @_;
-    my $perms = $app->{perms};
-    $perms ? $perms->can_edit_templates : $app->user->is_superuser;
-}
-
-sub rebuild_blogs {
-    my $plugin = shift;
-    my($app) = @_;
-    my $q = $app->{query};
-    my @blogs;
-    my %param;
-    for my $blog_id ($q->param('id')) {
-        push (@blogs, $blog_id);
-    }
-    my $data = [];
-    my $i = 1;
-    for my $blog (@blogs) {
-        my $row = { id => $blog};
-        push @$data, $row;
-    }
-    $param{loop} = $data;
-    my $offset = $q->param('offset') || '0';
-    my $total = $q->param('total') || scalar @blogs;
-    my $done = 0;
-    $done++ if $offset+1 >= $total;
-    my $author = $app->{author};
-    my @perms = MT::Permission->load({ author_id => $author->id });
-    my %perms = map { $_->blog_id => $_ } @perms;
-    
-    my $blog;
-    $blog = MT::Blog->load($blogs[$offset]);
-    my $blog_id = $blog->id;
-    $app->rebuild( BlogID => $blog_id );
-    $offset++;
-    if ($offset < $total){
-        my $next_blog = MT::Blog->load($blogs[$offset]);
-        $param{to_rebuild} = $next_blog->name if $next_blog;
-    }
-    $param{offset} = $offset;
-    $param{just_rebuilt} = $blog->name;
-    $param{rebuild_mode} = 'rebuild_blogs';
-    $param{what} = 'blogs';    
-    unless ($done) {
-        $param{total} = $total;
-        $param{multiple} = 1;
-        $app->build_page($plugin->load_tmpl('rebuilding_what.tmpl'), \%param);
-        } else {
-        $app->build_page($plugin->load_tmpl('rebuilt_what.tmpl'), \%param);
-    }
-}
-
-sub rebuild_templates {
-    my $plugin = shift;
-    my($app) = @_;
-    my $q = $app->{query};
-    my @templates;
-    my %param;
-    for my $template_id ($q->param('id')) {
-        push (@templates, $template_id);
-    }
-    my $data = [];
-    my $i = 1;
-    for my $template (@templates) {
-        my $row = { id => $template};
-        push @$data, $row;
-    }
-    $param{loop} = $data;
-    my $offset = $q->param('offset') || '0';
-    my $total = $q->param('total') || scalar @templates;
-    my $done = 0;
-    $done++ if $offset+1 >= $total;
-    require MT::Template;
-    require MT::Permission;
-    my $author = $app->{author};
-    my @perms = MT::Permission->load({ author_id => $author->id });
-    
-    
-    my $template = MT::Template->load($templates[$offset]);
-    my $template_id = $template->id;
-    $app->rebuild_indexes( BlogID => $template->blog_id, Template => $template, Force => 1 );
-    $offset++;
-    if ($offset < $total){
-        my $next_template = MT::Template->load($templates[$offset]);
-        $param{to_rebuild} = 'template \''.$next_template->name.'\'' if $next_template;
-    }
-    $param{offset} = $offset;
-    $param{just_rebuilt} = 'Template \''.$template->name.'\'';
-    $param{rebuild_mode} = 'rebuild_templates';
-    $param{blog_id} = $template->blog_id;
-    unless ($done) {
-        $param{total} = $total;
-        $param{multiple} = 1;
-        $app->build_page($plugin->load_tmpl('rebuilding_what.tmpl'), \%param);
-        } else {
-        	$param{what} = 'templates';
-        $app->build_page($plugin->load_tmpl('rebuilt_what.tmpl'), \%param);
-    }
-}
-
-sub rebuild_entries {
-    my $plugin = shift;
-    my($app) = @_;
-    my $q = $app->{query};
-    my $type = $q->param('_type');
-    my @objs;
-    my %param;
-    for my $obj_id ($q->param('id')) {
-        push (@objs, $obj_id);
-    }
-    my $data = [];
-    my $i = 1;
-    for my $obj (@objs) {
-        my $row = { id => $obj};
-        push @$data, $row;
-    }
-    $param{loop} = $data;
-    my $offset = $q->param('offset') || '0';
+sub rebuild_objects {
+	my $plugin = shift;
+	my ($app) = @_;
+	my $q = $app->param;
+	
+	my $type = $q->param('_type');
+	my $class = $app->model($type);
+	my (@objs);
+	
+	# First build a loop of IDs of all the objects that need be republished
+	foreach my $id ($q->param('id')) {
+		push @objs, { id => $id };
+	}
+	
+	# Next calculate where in the loop we are (or are we there yet?)
+	my $offset = $q->param('offset') || '0';
     my $total = $q->param('total') || scalar @objs;
     my $done = 0;
     $done++ if $offset+1 >= $total;
-    my $author = $app->{author};
-    my @perms = MT::Permission->load({ author_id => $author->id });
-    my $class = $app->_load_driver_for($type) or return;
-    
-    my $obj = $class->load($objs[$offset]);
-    my $obj_id = $obj->id;
-    my $entry = MT::Entry->load($obj->entry_id);
-    $app->rebuild_entry( Entry => $entry, BuildDependencies => 1 );
-    $offset++;
-    if ($offset < $total){
-        my $next_obj = $class->load($objs[$offset]);
-        $param{to_rebuild} = $type.' #'.$next_obj->id if $next_obj;
-    }
-    $param{offset} = $offset;
-    $param{just_rebuilt} = $type.' #'.$obj->id;
-    $param{rebuild_mode} = 'rebuild_entries';
-    $param{blog_id} = $obj->blog_id;
-    $param{what} = $type;    
-    unless ($done) {
-        $param{total} = $total;
-        $param{multiple} = 1;
-        $app->build_page($plugin->load_tmpl('rebuilding_what.tmpl'), \%param);
-        } else {
-        	$param{what} = $type.'s';
-        $app->build_page($plugin->load_tmpl('rebuilt_what.tmpl'), \%param);
-    }
+	
+	# Load and rebuild the object
+	my $obj = $class->load($objs[$offset]->{id});
+	my $blog_id = ($type eq 'blog') ? $obj->id : $obj->blog_id;
+	my %terms = (
+		BlogID => $blog_id,
+		($type eq 'template') ? ( Template => $obj, Force => 1 ) : ()
+	);
+	my $rebuild_meth = ($type eq 'template') ? 'rebuild_indexes' : 'rebuild';
+	$app->$rebuild_meth(%terms); 
+	$offset++;
+	
+	# Lets populate $param for our build_page routine
+	my $param = {
+		type => $type,
+		offset => $offset,
+		total => $total,
+		obj_loop => \@objs,
+		type => $type,
+		just_rebuilt => $obj->name,
+		blog_id => $blog_id,
+		return_args => $q->param('return_args')
+	};
+
+	# Now that we've increment offset, check if there's still more to republish
+	# If yes, load the details of the next item so we can inform the user
+	if($offset < $total) {
+		my $next = $class->load($objs[$offset]->{id});
+		$param->{to_rebuild} = $next->name;
+	}
+	
+	if($done) {
+		# $app->add_return_arg( powerrebuild_published => 1);
+		$app->call_return( powerrebuild_published => 1 );
+	} else {
+		return $app->build_page($plugin->load_tmpl('rebuilding.tmpl'), $param);	
+	}	
 }
+
+# A transformer callback that adds a success message to the listing screens
+sub powerrebuild_return_arg {
+	my $plugin = shift;
+	my ($cb, $app, $tmpl) = @_;
+	
+	return unless $app->param('powerrebuild_published');
+	
+	my $old = q{<(\$)?mt:include name="include/header.tmpl"(\$)?>};
+	my $new = <<POWERREBUILD;
+	
+<mt:setvarblock name="content_header" append="1">	
+	<mtapp:statusmsg
+	 id="powerrebuild"
+	 class="success">
+		<__trans phrase="Your [_1]s have been successfully published" params="<mt:var name="object_type">">
+	</mtapp:statusmsg>
+</mt:setvarblock>
+POWERREBUILD
+	$$tmpl =~ s/($old)/$new\n$1/;
+}
+
+1;

@@ -1,0 +1,35 @@
+<mt:setvarblock name="html_head" append="1">
+	<script type="text/javascript">
+	<!--
+	function doRedirect () {
+	    // window.location='<mt:var name="script_url">?__mode=powerrebuild_publish&_type=<mt:var name="type">&blog_id=<mt:var name="blog_id"><mt:loop name="obj_loop">&id=<mt:var name="id"></mt:loop>&offset=<mt:var name="offset">&total=<mt:var name="total">&return_args=<mt:var name="return_args" escape="html">';
+		// The reason I need to do this is because I couldn't get it to send the return_args properly
+	
+		var form = document.getElementById('powerrebuild');
+		form.submit();		
+	}
+	setTimeout('doRedirect()', 200);
+	// -->
+	</script>
+</mt:setvarblock>
+<mt:setvarblock name="page_title"><__trans phrase="Publishing [_1]" params="<mt:var name="type">"></mt:setvarblock>
+<mt:include name="include/header.tmpl">
+	
+	<form name="powerrebuild" id="powerrebuild" action="<mt:var name="script_url">">
+		<input type="hidden" name="__mode" value="powerrebuild_publish" id="__mode" />
+		<input type="hidden" name="_type" value="<mt:var name="type">" id="_type" />
+		<input type="hidden" name="offset" value="<mt:var name="offset">" id="offset" />
+		<input type="hidden" name="total" value="<mt:var name="total">" id="total" />
+		<input type="hidden" name="return_args" value="<mt:var name="return_args" escape="html">" id="return_args" />
+		<mt:loop name="obj_loop">
+			<input type="hidden" name="id" value="<mt:var name="id">" id="id" />
+		</mt:loop>
+	</form>	
+	
+	<mtapp:statusmsg
+	 id="rebuilding"
+	 class="publishing">
+		<__trans phrase="Published [_1], now publishing [_2]" params="<mt:var name="just_rebuilt">%%<mt:var name="to_rebuild">">
+	</mtapp:statusmsg>
+
+<mt:include name="include/footer.tmpl">
