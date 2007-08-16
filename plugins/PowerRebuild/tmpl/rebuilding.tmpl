@@ -1,14 +1,13 @@
 <mt:setvarblock name="html_head" append="1">
 	<script type="text/javascript">
 	<!--
-	function doRedirect () {
+	window.onload = function() {
 	    // window.location='<mt:var name="script_url">?__mode=powerrebuild_publish&_type=<mt:var name="type">&blog_id=<mt:var name="blog_id"><mt:loop name="obj_loop">&id=<mt:var name="id"></mt:loop>&offset=<mt:var name="offset">&total=<mt:var name="total">&return_args=<mt:var name="return_args" escape="html">';
+		
 		// The reason I need to do this is because I couldn't get it to send the return_args properly
-	
-		var form = document.getElementById('powerrebuild');
+		var form = document.forms['powerrebuild'];
 		form.submit();		
-	}
-	setTimeout('doRedirect()', 200);
+	};
 	// -->
 	</script>
 </mt:setvarblock>
